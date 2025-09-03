@@ -68,10 +68,10 @@ class TTSCodec:
         mel = self.m_spectro.run(["mel_spectrogram"], {"raw_waveform_with_channel": wav_ref.unsqueeze(0).cpu().numpy()}) 
         new_arr = np.transpose(mel[0], (0, 2, 1))
         g_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
-        return s_tokens, g_tokens[0]
+        return s_tokens, g_tokens
       
     def token2wav(self, g_tokens, s_tokens):
-        wav = self.vocoder.run(["output_waveform"], {"global_tokens": g_tokens, "semantic_tokens": s_tokens[0]})
+        wav = self.vocoder.run(["output_waveform"], {"global_tokens": g_tokens, "semantic_tokens": s_tokens})
         return wav[0]
     
 
