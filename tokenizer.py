@@ -33,7 +33,7 @@ class TTSCodec:
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
         self.vocoder = ort.InferenceSession(f"{decoder_paths}/b_decoder.onnx", sess_options, providers=providers)
     def get_ref_clip(self, wav: np.ndarray) -> np.ndarray:
-        """Get reference audio clip for speaker embedding."""
+
         ref_segment_length = 96000
         wav_length = len(wav)
 
@@ -63,15 +63,15 @@ class TTSCodec:
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
       
         feat = self.extract_wav2vec2_features(audio)
-        s_tokens = self.q_encoder.run(["semantic_tokens"], {"features": feat.cpu().detach().numpy()})
+        content_tokens = self.q_encoder.run(["semantic_tokens"], {"features": feat.cpu().detach().numpy()})
 
         mel = self.m_spectro.run(["mel_spectrogram"], {"raw_waveform_with_channel": wav_ref.unsqueeze(0).cpu().numpy()}) 
         new_arr = np.transpose(mel[0], (0, 2, 1))
-        g_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
-        return s_tokens, g_tokens
+        voice_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
+        return voice_tokens, content_tokens
       
-    def token2wav(self, g_tokens, s_tokens):
-        wav = self.vocoder.run(["output_waveform"], {"global_tokens": g_tokens, "semantic_tokens": s_tokens})
+    def token2wav(self, voice_tokens, content_tokens):
+        wav = self.vocoder.run(["output_waveform"], {"global_tokens": voice_tokens, "semantic_tokens": content_tokens})
         return wav[0]
     
 
