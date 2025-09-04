@@ -32,6 +32,7 @@ class TTSCodec:
         self.s_encoder = ort.InferenceSession(f"{decoder_paths}/s_encoder.onnx", sess_options, providers=providers)
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
         self.vocoder = ort.InferenceSession(f"{decoder_paths}/b_decoder.onnx", sess_options, providers=providers)
+        self.hidden_state_layer = 10
     def get_ref_clip(self, wav: np.ndarray) -> np.ndarray:
 
         ref_segment_length = 96000
@@ -53,7 +54,7 @@ class TTSCodec:
 
         features = self.feature_extractor(inputs.to(self.feature_extractor.device))
 
-        features = features.hidden_states[10]
+        features = features.hidden_states[self.hidden_state_layer]
         return features
     def wav2token(self, wav):
         audio, sr = soundfile.read(wav)
