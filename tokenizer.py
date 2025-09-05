@@ -64,15 +64,30 @@ class TTSCodec:
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
       
         feat = self.extract_wav2vec2_features(audio)
-        content_tokens = self.q_encoder.run(["semantic_tokens"], {"features": feat.cpu().detach().numpy()})
+        speech_tokens = self.q_encoder.run(["semantic_tokens"], {"features": feat.cpu().detach().numpy()})
 
         mel = self.m_spectro.run(["mel_spectrogram"], {"raw_waveform_with_channel": wav_ref.unsqueeze(0).cpu().numpy()}) 
         new_arr = np.transpose(mel[0], (0, 2, 1))
-        voice_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
-        return voice_tokens, content_tokens
+        context_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
+        return context_tokens, speech_tokens
       
-    def token2wav(self, voice_tokens, content_tokens):
-        wav = self.vocoder.run(["output_waveform"], {"global_tokens": voice_tokens, "semantic_tokens": content_tokens})
+    def token2wav(self, context_tokens, speech_tokens, llm_generated=False):
+        if llm_generated:
+            speech_tokens = self.extract_speech_tokens(speech_tokens)
+        wav = self.vocoder.run(["output_waveform"], {"global_tokens": context_tokens, "semantic_tokens": speech_tokens})
         return wav[0]
+        
+    def format_prompt(self, text_prompt, context_tokens):
+        prompt = f"<|task_tts|><|start_text|>{text_prompt}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
+        return prompt
+        
+    def extract_speech_tokens(self, generated_output):
+        pred_semantic_ids = (
+            torch.tensor([int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)])
+            .long()
+            .unsqueeze(0)
+        ).numpy()
+        return pred_semantic_ids        
+
     
 
