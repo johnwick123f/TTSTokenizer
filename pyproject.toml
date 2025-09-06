@@ -21,9 +21,6 @@ dependencies = [
     "onnxruntime-gpu",
 ]
 
-[project.optional-dependencies]
-dev = ['git+https://github.com/johnwick123f/FastAudioSR.git']
-
 [project.urls]
 Homepage = "https://github.com/johnwick123f/TTSTokenizer/"
 Issues = "https://github.com/johnwick123f/TTSTokenizer/issues"
