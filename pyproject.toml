@@ -19,8 +19,8 @@ classifiers = [
 dependencies = [
     "onnx",
     "onnxruntime-gpu",
-    "git+https://github.com/johnwick123f/FastAudioSR.git#subdirectory=FastAudioSR",
 ]
+dev = ['git+https://github.com/johnwick123f/FastAudioSR.git']
 
 [project.urls]
 Homepage = "https://github.com/johnwick123f/TTSTokenizer/"
