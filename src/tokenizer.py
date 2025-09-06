@@ -12,6 +12,7 @@ from transformers import AutoTokenizer, PretrainedConfig, GenerationConfig
 from huggingface_hub import snapshot_download
 import soundfile as sf
 import torch
+from FastAudioSR import FASR
 
 class TTSCodec:
     def __init__(self, wav2vec2_path="facebook/wav2vec2-large-xlsr-53", tokenizer_path="YaTharThShaRma999/pretrained_tts_tokenizers", device='cuda:0'):
@@ -32,6 +33,7 @@ class TTSCodec:
         self.s_encoder = ort.InferenceSession(f"{decoder_paths}/s_encoder.onnx", sess_options, providers=providers)
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
         self.vocoder = ort.InferenceSession(f"{decoder_paths}/b_decoder.onnx", sess_options, providers=providers)
+        self.upsampler = FASR(f'{decoder_paths}/SR48k.pth')
         self.hidden_state_layer = 10
     def get_ref_clip(self, wav: np.ndarray) -> np.ndarray:
 
@@ -71,11 +73,13 @@ class TTSCodec:
         context_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
         return context_tokens, speech_tokens
       
-    def token2wav(self, context_tokens, speech_tokens, llm_generated=False):
+    def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True):
         if llm_generated:
             speech_tokens = self.extract_speech_tokens(speech_tokens)
         wav = self.vocoder.run(["output_waveform"], {"global_tokens": context_tokens, "semantic_tokens": speech_tokens})
-        return wav[0]
+        if upsample:
+            wav = self.upsampler.run(wav[0][0])
+        return wav
         
     def format_prompt(self, text_prompt, context_tokens):
         context_tokens = "".join(
