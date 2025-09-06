@@ -78,12 +78,15 @@ class TTSCodec:
         return wav[0]
         
     def format_prompt(self, text_prompt, context_tokens):
+        context_tokens = "".join(
+            [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
+        )
         prompt = f"<|task_tts|><|start_text|>{text_prompt}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
         return prompt
         
     def extract_speech_tokens(self, generated_output):
         pred_semantic_ids = (
-            torch.tensor([int(token) for token in re.findall(r"bicodec_semantic_(\d+)", generated_output)])
+            torch.tensor([int(token) for token in re.findall(r"speech_token_(\d+)", generated_output)])
             .long()
             .unsqueeze(0)
         ).numpy()
