@@ -19,6 +19,7 @@ classifiers = [
 dependencies = [
     "onnx",
     "onnxruntime-gpu",
+    "git+https://github.com/johnwick123f/FastAudioSR.git",
 ]
 
 [project.urls]
