@@ -80,8 +80,8 @@ class TTSCodec:
             speech_tokens = self.extract_speech_tokens(speech_tokens)
         audio = self.vocoder.run(["output_waveform"], {"global_tokens": context_tokens, "semantic_tokens": speech_tokens})
         if upsample:
-            audio = torch.from_numpy(audio).half()
-            wav = fasr.run(audio)
+            audio = torch.from_numpy(audio[0][0]).half()
+            wav = self.upsampler.run(audio)
         return wav
         
     def format_prompt(self, text_prompt, context_tokens):
