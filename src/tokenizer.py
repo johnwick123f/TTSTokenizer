@@ -33,7 +33,8 @@ class TTSCodec:
         self.s_encoder = ort.InferenceSession(f"{decoder_paths}/s_encoder.onnx", sess_options, providers=providers)
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
         self.vocoder = ort.InferenceSession(f"{decoder_paths}/b_decoder.onnx", sess_options, providers=providers)
-        self.upsampler = torch._inductor.aoti_load_package(f'{decoder_paths}/aot_upsampler.pt2')
+        
+        self.upsampler = torch._inductor.aoti_load_package(f'{decoder_paths}/model_fp16.pt2')
         self.hidden_state_layer = 10
     def get_ref_clip(self, wav: np.ndarray) -> np.ndarray:
 
