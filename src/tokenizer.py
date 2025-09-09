@@ -59,7 +59,7 @@ class TTSCodec:
 
         features = self.feature_extractor(inputs.to(self.feature_extractor.device).half())
 
-        features = features.hidden_states[self.hidden_state_layer]
+        features = features.hidden_states[self.hidden_state_layer].float()
         return features
     def wav2token(self, wav):
         audio, sr = soundfile.read(wav)
