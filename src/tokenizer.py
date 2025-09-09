@@ -20,7 +20,8 @@ class TTSCodec:
             wav2vec2_path
         )
         self.feature_extractor = Wav2Vec2Model.from_pretrained(
-            wav2vec2_path
+            wav2vec2_path,
+            torch_dtype=torch.float16,
         ).to(device)
       
         self.feature_extractor.config.output_hidden_states = True
@@ -56,7 +57,7 @@ class TTSCodec:
             output_hidden_states=True,
         ).input_values
 
-        features = self.feature_extractor(inputs.to(self.feature_extractor.device))
+        features = self.feature_extractor(inputs.to(self.feature_extractor.device).half())
 
         features = features.hidden_states[self.hidden_state_layer]
         return features
