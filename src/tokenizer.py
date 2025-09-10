@@ -4,14 +4,12 @@ import numpy as np
 import re
 import argparse
 import os
-import soundfile
-import soxr
 import time
 import onnxruntime as ort
 from transformers import AutoTokenizer, PretrainedConfig, GenerationConfig
 from huggingface_hub import snapshot_download
-import soundfile as sf
 import torch
+import librosa
 from FastAudioSR import FASR
 
 class TTSCodec:
