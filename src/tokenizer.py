@@ -61,9 +61,9 @@ class TTSCodec:
 
         features = features.hidden_states[self.hidden_state_layer].float()
         return features
-    def wav2token(self, wav):
-        audio, sr = soundfile.read(wav)
-        audio = soxr.resample(audio, sr, 16000, quality="VHQ")
+    def wav2token(self, wav, duration=5):
+        
+        audio, sr = librosa.load(wav, sr=16000, duration=duration)
       
         ref_clip = self.get_ref_clip(audio)
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
