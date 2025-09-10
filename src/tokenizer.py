@@ -33,7 +33,7 @@ class TTSCodec:
         self.m_spectro = ort.InferenceSession(f"{decoder_paths}/m_spectro.onnx", sess_options, providers=providers)
         self.s_encoder = ort.InferenceSession(f"{decoder_paths}/s_encoder.onnx", sess_options, providers=providers)
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
-        self.vocoder = ort.InferenceSession(f"{decoder_paths}/b_decoder.onnx", sess_options, providers=providers)
+        self.vocoder = ort.InferenceSession(f"{decoder_paths}/b_decoder_new.onnx", sess_options, providers=providers)
         
         self.upsampler = FASR(f'{decoder_paths}/upsampler.pth')
         self.upsampler.model.half().eval()
