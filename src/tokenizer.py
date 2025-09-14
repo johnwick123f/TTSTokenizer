@@ -11,6 +11,7 @@ from huggingface_hub import snapshot_download
 import torch
 import librosa
 from FastAudioSR import FASR
+from decoder import AudioTokenizer
 
 class TTSCodec:
     def __init__(self, wav2vec2_path="facebook/wav2vec2-large-xlsr-53", tokenizer_path="YaTharThShaRma999/pretrained_tts_tokenizers", device='cuda:0'):
@@ -35,6 +36,8 @@ class TTSCodec:
         
         self.upsampler = FASR(f'{decoder_paths}/upsampler.pth')
         self.upsampler.model.half().eval()
+        self.processor_tokenizer = ort.InferenceSession(f"{decoder_paths}/processer.onnx", sess_options, providers=providers)
+
         self.hidden_state_layer = 10
     def get_ref_clip(self, wav: np.ndarray) -> np.ndarray:
 
@@ -77,11 +80,18 @@ class TTSCodec:
     def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True):
         if llm_generated:
             speech_tokens = self.extract_speech_tokens(speech_tokens)
-        audio = self.vocoder.run(["output_waveform"], {"global_tokens": context_tokens, "semantic_tokens": speech_tokens})
+        lowres_wav = self.detokenize(context_tokens, speech_tokens)
         if upsample:
-            audio = torch.from_numpy(audio[0][0]).half()
-            wav = self.upsampler.run(audio)
+            lowres_wav = torch.from_numpy(lowres_wav).squeeze(1).half()
+            wav = self.upsampler.run(lowres_wav)
         return wav
+        
+    def detokenize(self, context_tokens, speech_tokens):
+        x = self.processor_tokenizer.run(["preprocessed_output"], {"context_tokens": context_tokens, "speech_tokens": speech_tokens})
+        x = torch.from_numpy(x[0]).to("cuda:0").half()
+        lowres_wav = self.audio_detokenizer.decode(x)
+        return lowres_wav
+
         
     def format_prompt(self, text_prompt, context_tokens):
         context_tokens = "".join(
