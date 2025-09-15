@@ -28,7 +28,7 @@ class TTSCodec:
         providers = [
             ("CUDAExecutionProvider", {"device_id": 0})
         ]
-        decoder_paths = snapshot_download(tokenizer_path)
+        decoder_paths = snapshot_download(tokenizer_path, force_download=True)
         self.m_spectro = ort.InferenceSession(f"{decoder_paths}/m_spectro.onnx", sess_options, providers=providers)
         self.s_encoder = ort.InferenceSession(f"{decoder_paths}/s_encoder.onnx", sess_options, providers=providers)
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
