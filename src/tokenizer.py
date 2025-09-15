@@ -87,7 +87,7 @@ class TTSCodec:
         context_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
         return context_tokens, speech_tokens
       
-    def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True):
+    def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True, concat=True):
 
         """decodes the speech tokens with context tokens for audio output, optionally upsamples to 48khz for higher quality output"""
         
@@ -97,6 +97,9 @@ class TTSCodec:
         if upsample:
             wav = wav.squeeze(1).half()
             wav = self.upsampler.run(wav)
+
+        if concat:
+            wav = wav.flatten()
         return wav
         
     def detokenize(self, context_tokens, speech_tokens):
