@@ -28,7 +28,7 @@ class TTSCodec:
         providers = [
             ("CUDAExecutionProvider", {"device_id": 0})
         ]
-        decoder_paths = snapshot_download(tokenizer_path, force_download=True)
+        decoder_paths = snapshot_download(tokenizer_path)
         self.m_spectro = ort.InferenceSession(f"{decoder_paths}/m_spectro.onnx", sess_options, providers=providers)
         self.s_encoder = ort.InferenceSession(f"{decoder_paths}/s_encoder.onnx", sess_options, providers=providers)
         self.q_encoder = ort.InferenceSession(f"{decoder_paths}/q_encoder.onnx", sess_options, providers=providers)
@@ -39,17 +39,23 @@ class TTSCodec:
         self.processor_tokenizer = ort.InferenceSession(f"{decoder_paths}/processer.onnx", sess_options, providers=providers)
         self.audio_detokenizer = AudioTokenizer(f'{decoder_paths}/detokenizer.safetensors')
 
+        self.ref_segment_length = 96000
         self.hidden_state_layer = 10
-    def get_ref_clip(self, wav: np.ndarray) -> np.ndarray:
+    def get_ref_clip(self, wav):
 
-        ref_segment_length = 96000
+        """pads to ref segment lenght"""
+
+        ref_segment_length = self.ref_segment_length
         wav_length = len(wav)
 
         if ref_segment_length > wav_length:
             wav = np.tile(wav, ref_segment_length // wav_length + 1)
 
         return wav[:ref_segment_length]
-    def extract_wav2vec2_features(self, wavs: torch.Tensor) -> torch.Tensor:
+        
+    def extract_wav2vec2_features(self, wavs):
+
+        """extracts wav2vec2 hidden states"""
 
         inputs = self.processor(
             wavs,
@@ -63,7 +69,10 @@ class TTSCodec:
 
         features = features.hidden_states[self.hidden_state_layer].float()
         return features
-    def wav2token(self, wav, duration=5):
+        
+    def wav2token(self, wav, duration=8):
+
+        """encodes audio file into speech tokens and context tokens"""
         
         audio, sr = librosa.load(wav, sr=16000, duration=duration)
       
@@ -79,15 +88,19 @@ class TTSCodec:
         return context_tokens, speech_tokens
       
     def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True):
+
+        """decodes the speech tokens with context tokens for audio output, optionally upsamples to 48khz for higher quality output"""
+        
         if llm_generated:
             speech_tokens = self.extract_speech_tokens(speech_tokens)
-        lowres_wav = self.detokenize(context_tokens, speech_tokens)
+        wav = self.detokenize(context_tokens, speech_tokens)
         if upsample:
-            lowres_wav = lowres_wav.squeeze(1).half()
-            wav = self.upsampler.run(lowres_wav)
+            wav = wav.squeeze(1).half()
+            wav = self.upsampler.run(wav)
         return wav
         
     def detokenize(self, context_tokens, speech_tokens):
+        """helper function to detokenize"""
         x = self.processor_tokenizer.run(["preprocessed_output"], {"context_tokens": context_tokens, "speech_tokens": speech_tokens})
         x = torch.from_numpy(x[0]).to("cuda:0").half()
         lowres_wav = self.audio_detokenizer.decode(x)
@@ -95,6 +108,7 @@ class TTSCodec:
 
         
     def format_prompt(self, text_prompt, context_tokens):
+        """formats prompt for llm tts model"""
         context_tokens = "".join(
             [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
         )
@@ -102,6 +116,7 @@ class TTSCodec:
         return prompt
         
     def extract_speech_tokens(self, generated_output):
+        """extracts speech tokens from llm tts model output"""
         pred_semantic_ids = (
             torch.tensor([int(token) for token in re.findall(r"speech_token_(\d+)", generated_output)])
             .long()
