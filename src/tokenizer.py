@@ -83,7 +83,7 @@ class TTSCodec:
             speech_tokens = self.extract_speech_tokens(speech_tokens)
         lowres_wav = self.detokenize(context_tokens, speech_tokens)
         if upsample:
-            lowres_wav = torch.from_numpy(lowres_wav).squeeze(1).half()
+            lowres_wav = lowres_wav.squeeze(1).half()
             wav = self.upsampler.run(lowres_wav)
         return wav
         
