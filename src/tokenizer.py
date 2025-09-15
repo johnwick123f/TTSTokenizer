@@ -1,8 +1,7 @@
 from transformers import Wav2Vec2FeatureExtractor, Wav2Vec2Model
-import json
+import gc
 import numpy as np
 import re
-import argparse
 import os
 import time
 import onnxruntime as ort
@@ -70,6 +69,7 @@ class TTSCodec:
         features = features.hidden_states[self.hidden_state_layer].float()
         return features
         
+    @torch.inference_mode()   
     def wav2token(self, wav, duration=8):
 
         """encodes audio file into speech tokens and context tokens"""
@@ -86,7 +86,8 @@ class TTSCodec:
         new_arr = np.transpose(mel[0], (0, 2, 1))
         context_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
         return context_tokens, speech_tokens
-      
+
+    @torch.inference_mode()
     def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True, concat=True):
 
         """decodes the speech tokens with context tokens for audio output, optionally upsamples to 48khz for higher quality output"""
@@ -102,6 +103,7 @@ class TTSCodec:
             wav = wav.flatten()
         return wav
         
+    @torch.inference_mode()    
     def detokenize(self, context_tokens, speech_tokens):
         """helper function to detokenize"""
         x = self.processor_tokenizer.run(["preprocessed_output"], {"context_tokens": context_tokens, "speech_tokens": speech_tokens})
@@ -125,4 +127,9 @@ class TTSCodec:
             .long()
             .unsqueeze(0)
         ).numpy()
-        return pred_semantic_ids   
+        return pred_semantic_ids
+        
+    def c_cache(self):
+        """clears any vram/cache, very useful"""
+        gc.collect()
+        torch.cuda.empty_cache()
