@@ -136,7 +136,7 @@ class TTSCodec:
         
         if list:
             formatted_prompt = []
-            sentences = split_sentence(text_prompt)
+            sentences = split_sentences(text_prompt)
             for sentence in sentences:
                 context_tokens = "".join(
                     [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
