@@ -119,7 +119,7 @@ class TTSCodec:
 
         if concat:
             wav = wav.flatten()
-            wav = batch_cross_fade(wav.cpu().numpy())
+        wav = batch_cross_fade(wav.cpu().numpy())
         return wav
         
     @torch.inference_mode()    
@@ -131,13 +131,24 @@ class TTSCodec:
         return lowres_wav
 
         
-    def format_prompt(self, text_prompt, context_tokens):
+    def format_prompt(self, text_prompt, context_tokens, list=False):
         """formats prompt for llm tts model"""
-        context_tokens = "".join(
-            [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
-        )
-        prompt = f"<|task_tts|><|start_text|>{text_prompt}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
-        return prompt
+        
+        if list:
+            formatted_prompt = []
+            sentences = split_sentence(text_prompt)
+            for sentence in sentences:
+                context_tokens = "".join(
+                    [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
+                )
+                prompt = f"<|task_tts|><|start_text|>{sentence}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
+                formatted_prompt.append(prompt)
+        else:
+            context_tokens = "".join(
+                [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
+            )
+            formatted_prompt = f"<|task_tts|><|start_text|>{text_prompt}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
+        return formatted_prompt
         
     def extract_speech_tokens(self, generated_output):
         """extracts speech tokens from llm tts model output"""
