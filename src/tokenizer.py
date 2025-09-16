@@ -138,10 +138,10 @@ class TTSCodec:
             formatted_prompt = []
             sentences = split_sentences(text_prompt)
             for sentence in sentences:
-                context_tokens = "".join(
+                context_tokens_formatted = "".join(
                     [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
                 )
-                prompt = f"<|task_tts|><|start_text|>{sentence}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
+                prompt = f"<|task_tts|><|start_text|>{sentence}<|end_text|><|context_audio_start|>{context_tokens_formatted}<|context_audio_end|>"
                 formatted_prompt.append(prompt)
         else:
             context_tokens = "".join(
