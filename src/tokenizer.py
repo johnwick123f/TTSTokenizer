@@ -11,6 +11,7 @@ import torch
 import librosa
 from FastAudioSR import FASR
 from decoder import AudioTokenizer
+from tokenizer_utils import *
 
 class TTSCodec:
     def __init__(self, wav2vec2_path="facebook/wav2vec2-large-xlsr-53", tokenizer_path="YaTharThShaRma999/pretrained_tts_tokenizers", device='cuda:0'):
@@ -101,6 +102,24 @@ class TTSCodec:
 
         if concat:
             wav = wav.flatten()
+        return wav
+        
+    @torch.inference_mode()
+    def batch_token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True, concat=True):
+        """decodes the speech tokens with context tokens for audio output, optionally upsamples to 48khz for higher quality output"""
+        combined_tokens = ""
+        if llm_generated:
+            for speech_token in speech_tokens:
+                combined_tokens += speech_token
+            speech_tokens = self.extract_speech_tokens(combined_tokens)
+        wav = self.detokenize(context_tokens, speech_tokens)
+        if upsample:
+            wav = wav.squeeze(1).half()
+            wav = self.upsampler.run(wav)
+
+        if concat:
+            wav = wav.flatten()
+            wav = batch_cross_fade(wav.cpu().numpy())
         return wav
         
     @torch.inference_mode()    
