@@ -1,6 +1,7 @@
 import numpy as np
 from pydub import AudioSegment, silence
 import librosa
+import re 
 
 def remove_silence_pydub(audio_data, sample_rate, silence_thresh_db=-40, min_silence_len=300):
     """Removes silence from a NumPy array audio signal and returns a new NumPy array."""
