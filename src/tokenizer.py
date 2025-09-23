@@ -70,12 +70,10 @@ class TTSCodec:
         return avg_feat
         
     @torch.inference_mode()   
-    def wav2token(self, wav, duration=8):
+    def wav2token(self, audio, duration=8):
 
         """encodes audio file into speech tokens and context tokens"""
-        
-        audio, sr = librosa.load(wav, sr=16000, duration=duration)
-      
+        audio = load_audio(audio, duration)
         ref_clip = self.get_ref_clip(audio)
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
       
