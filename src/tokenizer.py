@@ -52,11 +52,9 @@ class TTSCodec:
             wav = np.tile(wav, ref_segment_length // wav_length + 1)
 
         return wav[:ref_segment_length]
-        
-    def extract_wav2vec2_features(self, wavs):
 
-        """extracts wav2vec2 hidden states"""
-
+    def extract_wav2vec2_features(self, wavs: torch.Tensor) -> torch.Tensor:
+        """extract wav2vec2 hidden state for semantics"""
         inputs = self.processor(
             wavs,
             sampling_rate=16000,
@@ -64,11 +62,12 @@ class TTSCodec:
             padding=True,
             output_hidden_states=True,
         ).input_values
+        feat = self.feature_extractor(inputs.to(self.feature_extractor.device).half())
+        avg_feat = (
+            feat.hidden_states[11] + feat.hidden_states[14] + feat.hidden_states[16]
+        ) / 3
 
-        features = self.feature_extractor(inputs.to(self.feature_extractor.device).half())
-
-        features = features.hidden_states[self.hidden_state_layer].float()
-        return features
+        return avg_feat
         
     @torch.inference_mode()   
     def wav2token(self, wav, duration=8):
