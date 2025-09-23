@@ -10,9 +10,9 @@ def remove_silence_pydub(audio_data, sample_rate, silence_thresh_db=-40, min_sil
     processed_audio = sum(chunks).normalize(headroom=5.0)
     return np.array(processed_audio.get_array_of_samples())
 
-def load_audio(audio_path):
+def load_audio(audio_path, duration=7):
     """loads audio and processes it with pydub"""
-    audio, sr = librosa.load(r"C:\Users\Nitin\Downloads\tiktok_influencer.wav")
+    audio, sr = librosa.load(audio_path, duration=duration, sr=16000)
     audio = audio * 2147483647.0
     audio = audio.astype(np.int32)
     trimmed_wav = remove_silence_pydub(audio, sr)
@@ -44,5 +44,5 @@ def batch_cross_fade(audio_chunks, fade_samples=1600):
     return reconstructed_audio
 
 def split_sentences(text):
-  sentences = [s for s in re.split(r'(?<=[.!?])\s*', text) if s]
-  return sentences
+    sentences = [s for s in re.split(r'(?<=[.!?])\s*', text) if s]
+    return sentences
