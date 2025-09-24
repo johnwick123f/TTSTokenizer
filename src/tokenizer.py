@@ -12,9 +12,10 @@ import librosa
 from FastAudioSR import FASR
 from decoder import AudioTokenizer
 from tokenizer_utils import *
+from transformers import pipeline
 
 class TTSCodec:
-    def __init__(self, wav2vec2_path="facebook/wav2vec2-large-xlsr-53", tokenizer_path="YaTharThShaRma999/pretrained_tts_tokenizers", device='cuda:0'):
+    def __init__(self, wav2vec2_path="facebook/wav2vec2-large-xlsr-53", tokenizer_path="YaTharThShaRma999/pretrained_tts_tokenizers", device='cuda:0', whisper_model="openai/whisper-small"):
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(
             wav2vec2_path
         )
@@ -38,7 +39,8 @@ class TTSCodec:
         self.upsampler.model.half().eval()
         self.processor_tokenizer = ort.InferenceSession(f"{decoder_paths}/processer.onnx", sess_options, providers=providers)
         self.audio_detokenizer = AudioTokenizer(f'{decoder_paths}/detokenizer.safetensors')
-
+        self.transcriber = pipeline("automatic-speech-recognition", model=whisper_model, device='cuda:0', torch_dtype=torch.bfloat16)
+        
         self.ref_segment_length = 96000
         self.hidden_state_layer = 10
     def get_ref_clip(self, wav):
@@ -67,13 +69,16 @@ class TTSCodec:
             feat.hidden_states[11] + feat.hidden_states[14] + feat.hidden_states[16]
         ) / 3
 
-        return avg_feat
+        return avg_feat.float()
         
     @torch.inference_mode()   
-    def wav2token(self, audio, duration=8):
+    def wav2token(self, audio, duration=8, use_transcription=True, add_silence=16000):
 
         """encodes audio file into speech tokens and context tokens"""
-        audio = load_audio(audio, duration)
+        audio, sr = librosa.load(audio)
+        if add_silence:
+            audio = np.concatenate((audio, np.zeros(add_silence)))
+
         ref_clip = self.get_ref_clip(audio)
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
       
@@ -83,7 +88,12 @@ class TTSCodec:
         mel = self.m_spectro.run(["mel_spectrogram"], {"raw_waveform_with_channel": wav_ref.unsqueeze(0).cpu().numpy()}) 
         new_arr = np.transpose(mel[0], (0, 2, 1))
         context_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
-        return context_tokens, speech_tokens
+        if use_transcription:
+            transcription = self.transcriber(audio)['text'].lstrip()
+            transcription = transcription if transcription.endswith('.') else transcription + '. '
+            return context_tokens, speech_tokens, transcription
+        else:
+            return context_tokens, speech_tokens
 
     @torch.inference_mode()
     def token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True, concat=True):
@@ -101,23 +111,6 @@ class TTSCodec:
             wav = wav.flatten()
         return wav
         
-    @torch.inference_mode()
-    def batch_token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True, concat=True):
-        """decodes the speech tokens with context tokens for audio output, optionally upsamples to 48khz for higher quality output"""
-        combined_tokens = ""
-        if llm_generated:
-            for speech_token in speech_tokens:
-                combined_tokens += speech_token
-            speech_tokens = self.extract_speech_tokens(combined_tokens)
-        wav = self.detokenize(context_tokens, speech_tokens)
-        if upsample:
-            wav = wav.squeeze(1).half()
-            wav = self.upsampler.run(wav)
-
-        if concat:
-            wav = wav.flatten()
-        wav = batch_cross_fade(wav.cpu().numpy())
-        return wav
         
     @torch.inference_mode()    
     def detokenize(self, context_tokens, speech_tokens):
@@ -128,24 +121,27 @@ class TTSCodec:
         return lowres_wav
 
         
-    def format_prompt(self, text_prompt, context_tokens, list=False):
+    def format_prompt(self, sentences, context_tokens, speech_tokens=None, transcription=None, split=True):
         """formats prompt for llm tts model"""
-        
-        if list:
-            formatted_prompt = []
-            sentences = split_sentences(text_prompt)
-            for sentence in sentences:
-                context_tokens_formatted = "".join(
-                    [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
-                )
-                prompt = f"<|task_tts|><|start_text|>{sentence}<|end_text|><|context_audio_start|>{context_tokens_formatted}<|context_audio_end|>"
-                formatted_prompt.append(prompt)
-        else:
-            context_tokens = "".join(
-                [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
+
+        formatted_prompts = []
+        context_tokens_formatted = "".join(
+            [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
+        )
+        if speech_tokens:
+            speech_tokens_formatted = "".join(
+                    [f"<|speech_token_{i}|>" for i in speech_tokens.squeeze()]
             )
-            formatted_prompt = f"<|task_tts|><|start_text|>{text_prompt}<|end_text|><|context_audio_start|>{context_tokens}<|context_audio_end|>"
-        return formatted_prompt
+        if split:
+            sentences = split_sentences(sentences)
+            
+        for sentence in sentences:
+            if speech_tokens:
+                prompt = f"<|task_tts|><|start_text|>{transcription}{sentence}<|end_text|><|context_audio_start|>{context_tokens_formatted}<|context_audio_end|><|prompt_speech_start|>{speech_tokens_formatted}"
+            else:
+                prompt = f"<|task_tts|><|start_text|>{sentence}<|end_text|><|context_audio_start|>{context_tokens_formatted}<|context_audio_end|>"
+            formatted_prompts.append(prompt)
+        return formatted_prompts
         
     def extract_speech_tokens(self, generated_output):
         """extracts speech tokens from llm tts model output"""
