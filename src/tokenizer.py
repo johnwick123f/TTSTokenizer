@@ -128,7 +128,7 @@ class TTSCodec:
         context_tokens_formatted = "".join(
             [f"<|context_token_{i}|>" for i in context_tokens.squeeze()]
         )
-        if speech_tokens:
+        if transcription:
             speech_tokens_formatted = "".join(
                     [f"<|speech_token_{i}|>" for i in speech_tokens.squeeze()]
             )
