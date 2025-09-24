@@ -75,7 +75,7 @@ class TTSCodec:
     def wav2token(self, audio, duration=8, use_transcription=True, add_silence=16000):
 
         """encodes audio file into speech tokens and context tokens"""
-        audio, sr = librosa.load(audio)
+        audio, sr = librosa.load(audio, duration=duration, sr=16000)
         if add_silence:
             audio = np.concatenate((audio, np.zeros(add_silence)))
 
