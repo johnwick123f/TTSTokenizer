@@ -136,7 +136,7 @@ class TTSCodec:
             sentences = split_sentences(sentences)
             
         for sentence in sentences:
-            if speech_tokens:
+            if transcription:
                 prompt = f"<|task_tts|><|start_text|>{transcription}{sentence}<|end_text|><|context_audio_start|>{context_tokens_formatted}<|context_audio_end|><|prompt_speech_start|>{speech_tokens_formatted}"
             else:
                 prompt = f"<|task_tts|><|start_text|>{sentence}<|end_text|><|context_audio_start|>{context_tokens_formatted}<|context_audio_end|>"
