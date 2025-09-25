@@ -16,6 +16,8 @@ from transformers import pipeline
 
 class TTSCodec:
     def __init__(self, wav2vec2_path="facebook/wav2vec2-large-xlsr-53", tokenizer_path="YaTharThShaRma999/pretrained_tts_tokenizers", device='cuda:0', whisper_model="openai/whisper-small"):
+
+        ## uses torch/onnx as seen fit, for some things torch is faster, others torch is faster
         self.processor = Wav2Vec2FeatureExtractor.from_pretrained(
             wav2vec2_path
         )
@@ -40,9 +42,9 @@ class TTSCodec:
         self.processor_tokenizer = ort.InferenceSession(f"{decoder_paths}/processer.onnx", sess_options, providers=providers)
         self.audio_detokenizer = AudioTokenizer(f'{decoder_paths}/detokenizer.safetensors')
         self.transcriber = pipeline("automatic-speech-recognition", model=whisper_model, device='cuda:0', torch_dtype=torch.bfloat16)
-        
-        self.ref_segment_length = 96000
-        self.hidden_state_layer = 10
+
+        self.ref_segment_length = 96000 ### determines how much seconds of reference audio actually used
+        self.chunk_size = 75 ### determines chunk size for decodng audio
     def get_ref_clip(self, wav):
 
         """pads to ref segment lenght"""
@@ -78,6 +80,8 @@ class TTSCodec:
         audio, sr = librosa.load(audio, duration=duration, sr=16000)
         if add_silence:
             audio = np.concatenate((audio, np.zeros(add_silence)))
+        if duration:
+            self.ref_segment_length = 16000 * duration
 
         ref_clip = self.get_ref_clip(audio)
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
@@ -103,6 +107,24 @@ class TTSCodec:
         if llm_generated:
             speech_tokens = self.extract_speech_tokens(speech_tokens)
         wav = self.detokenize(context_tokens, speech_tokens)
+        if upsample:
+            wav = wav.squeeze(1).half()
+            wav = self.upsampler.run(wav)
+
+        if concat:
+            wav = wav.flatten()
+        return wav
+    @torch.inference_mode()
+    def batch_token2wav(self, context_tokens, speech_tokens, llm_generated=False, upsample=True, concat=True):
+
+        """decodes the speech tokens with context tokens for audio output, optionally upsamples to 48khz for higher quality output"""
+        all_speech_tokens = []
+        for speech_token in speech_tokens:
+            all_speech_tokens.append(self.extract_speech_tokens(speech_token.text)) 
+        all_speech_tokens = np.concatenate(all_speech_tokens, axis=1)
+        all_speech_tokens = all_speech_tokens[:, : (all_speech_tokens.size // self.chunk_size) * self.chunk_size].reshape(-1, self.chunk_size)
+
+        wav = self.detokenize(context_tokens, all_speech_tokens)
         if upsample:
             wav = wav.squeeze(1).half()
             wav = self.upsampler.run(wav)
