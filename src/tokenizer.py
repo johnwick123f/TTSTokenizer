@@ -23,7 +23,7 @@ class TTSCodec:
         )
         self.feature_extractor = Wav2Vec2Model.from_pretrained(
             wav2vec2_path,
-            torch_dtype=torch.float16,
+            torch_dtype=torch.bfloat16,
         ).to(device)
       
         self.feature_extractor.config.output_hidden_states = True
@@ -66,7 +66,7 @@ class TTSCodec:
             padding=True,
             output_hidden_states=True,
         ).input_values
-        feat = self.feature_extractor(inputs.to(self.feature_extractor.device).half())
+        feat = self.feature_extractor(inputs.to(self.feature_extractor.device, dtype=torch.bfloat16))
         avg_feat = (
             feat.hidden_states[11] + feat.hidden_states[14] + feat.hidden_states[16]
         ) / 3
@@ -81,7 +81,7 @@ class TTSCodec:
         if add_silence:
             audio = np.concatenate((audio, np.zeros(add_silence)))
         if duration:
-            self.ref_segment_length = 16000 * duration
+            self.ref_segment_length = audio.shape[0] - add_silence
 
         ref_clip = self.get_ref_clip(audio)
         wav_ref = torch.from_numpy(ref_clip).unsqueeze(0).float()
@@ -93,8 +93,8 @@ class TTSCodec:
         new_arr = np.transpose(mel[0], (0, 2, 1))
         context_tokens = self.s_encoder.run(["global_tokens"], {"mel_spectrogram": new_arr}) 
         if use_transcription:
-            transcription = self.transcriber(audio)['text'].lstrip()
-            transcription = transcription if transcription.endswith('.') else transcription + '. '
+            transcription = self.transcriber(audio[:-16000])['text'].lstrip()
+            transcription = transcription.replace(".", ". ") if transcription.endswith('.') else transcription + '. '
             return context_tokens, speech_tokens, transcription
         else:
             return context_tokens, speech_tokens
